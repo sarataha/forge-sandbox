@@ -1,14 +1,8 @@
-# ~/gh: personal projects
+# Agent workflow rules
 
-GitHub user `sarataha`. Tracker: GitHub Issues. Ignore `ideas/`.
+Synced from the agent kit. Edit the source, not this copy.
 
-## Flow
-
-Human shapes issue + system. Agents do the rest.
-
-`/shape <idea>` → `/ship <issue>` → `/guard <pr>` → `/land <pr>`. New repo: `/new-project`.
-
-## Rules (all repos)
+## Rules
 
 - Read the repo's `AGENTS.md` first. Repo rules override this file.
 - One issue = one vertical slice = one PR. Branch off `main`; never push to `main`.
@@ -27,6 +21,6 @@ Human shapes issue + system. Agents do the rest.
 ## Drift → guardrail
 
 When an agent drifts, fix it where it would have been prevented:
-- repo-specific → that repo's `AGENTS.md` or CI check
-- all repos → this file or the relevant skill in `~/.claude/skills/`
+- this repo only → `AGENTS.md` or a CI check
+- all repos → the agent kit (skills or this file), then re-sync into each repo
 Prefer a CI check over prose when the rule is mechanical.
