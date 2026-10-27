@@ -11,7 +11,7 @@ case $cmd in
   issue-comments)   api --paginate "repos/$repo/issues/$1/comments" ;;
   pr)               api "repos/$repo/pulls/$1" ;;
   pr-files)         api --paginate "repos/$repo/pulls/$1/files" ;;
-  pr-diff)          api -H "Accept: application/vnd.github.diff" "repos/$repo/pulls/$1" ;;
+  pr-diff)          gh api -H "Accept: application/vnd.github.diff" "repos/$repo/pulls/$1" ;;
   # pr-create <head> <base> <title> <body-file>
   pr-create)        api -X POST "repos/$repo/pulls" -f head="$1" -f base="$2" -f title="$3" -F body=@"$4" ;;
   pr-edit-body)     api -X PATCH "repos/$repo/pulls/$1" -F body=@"$2" ;;

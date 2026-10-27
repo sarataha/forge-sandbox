@@ -10,4 +10,10 @@ for s in ship guard land _forge; do
   cp -R "$src/$s" "$dest/.claude/skills/$s"
 done
 cp "$HOME/gh/CLAUDE.md" "$dest/.claude/rules/workflow.md"
+
+# Cloud runs read the repo's .claude/settings.json: no claude.ai session link in commits/PRs.
+s="$dest/.claude/settings.json"
+[ -f "$s" ] || echo '{}' > "$s"
+tmp=$(mktemp)
+jq '.attribution.sessionUrl = false' "$s" > "$tmp" && mv "$tmp" "$s"
 git -C "$dest" status --short .claude
