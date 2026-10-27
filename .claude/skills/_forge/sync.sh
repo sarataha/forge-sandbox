@@ -9,7 +9,7 @@ for s in ship guard land _forge; do
   rm -rf "${dest:?}/.claude/skills/$s"
   cp -R "$src/$s" "$dest/.claude/skills/$s"
 done
-cp "$HOME/gh/CLAUDE.md" "$dest/.claude/rules/workflow.md"
+cp "$src/_forge/workflow.md" "$dest/.claude/rules/workflow.md"
 
 # Cloud runs read the repo's .claude/settings.json: no claude.ai session link in commits/PRs.
 s="$dest/.claude/settings.json"
