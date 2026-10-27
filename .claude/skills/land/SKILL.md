@@ -22,9 +22,12 @@ Need: not draft, every check `completed` with `success`/`skipped`/`neutral`, `me
 
 ## 2. Mechanical checks
 
-`$D/checks.sh <pr> sarataha/<repo>`. Outputs `HEAD <sha>`, `TRIGGER <kind>: <detail>`, `HARDBLOCK <kind>`.
+Run the checks from the **base branch**, never the PR's copy (a PR could edit them):
+`git fetch -q origin <base> && C=$(mktemp -d) && git --work-tree="$C" checkout origin/<base> -- .claude/skills && "$C/.claude/skills/land/checks.sh" <pr> sarataha/<repo>`.
+Base branch has no `.claude/skills/land` (kit lives only in `~/.claude`) → use `~/.claude/skills/land/checks.sh`.
+Outputs `HEAD <sha>`, `TRIGGER <kind>: <detail>`, `HARDBLOCK <kind>`.
 Triggers: size (>400 lines or >15 files), migration, ci, guardrails, deps, secrets, weakened-tests.
-Hard blocks: foreign-author (PR not opened by the repo owner), fork, auth, billing, license, customer-data (whole path segments), sensitive-path (the `- Sensitive paths:` line in AGENTS.md, read from the base branch).
+Hard blocks: foreign-author (PR not opened by the repo owner), fork, agent-kit (`.claude/`, `AGENTS.md`, `CLAUDE.md`), auth, billing, license, customer-data (whole path segments), sensitive-path (the `- Sensitive paths:` line in AGENTS.md, read from the base branch).
 
 Script is a floor, not a ceiling. Matches are by path; false positives are fine (they route to human review).
 

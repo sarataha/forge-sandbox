@@ -39,6 +39,8 @@ block auth "$(hit "$(seg 'auth|authn|authz|login|sessions?|oauth|rbac|acl|permis
 block billing "$(hit "$(seg 'billing|payments?|stripe|paddle|polar|lemonsqueezy|subscriptions?|invoices?|pricing|checkout|entitlements?')")"
 block license "$(hit "$(seg 'licen[cs]e|licen[cs]ing')")"
 block customer-data "$(hit "$(seg 'customers?|tenants?|pii|gdpr|user_?data')")"
+# Agent kit and settings: an agent must never merge changes to its own guardrails.
+block agent-kit "$(hit '^\.claude/|(^|/)(AGENTS|CLAUDE)\.md$')"
 
 # Repo-declared sensitive paths, read from the BASE branch so a PR can't edit them away.
 base=$(jq -r .base.ref <<<"$json")
