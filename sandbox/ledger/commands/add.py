@@ -4,9 +4,12 @@ from sandbox.ledger.model import format_cents, make_expense
 
 
 def handler(args, store, out) -> int:
-    expense = make_expense(args.date or date.today().isoformat(), args.amount, args.category, args.note)
+    day = args.date if args.date is not None else date.today().isoformat()
+    expense = make_expense(day, args.amount, args.category, args.note)
     (new_id,) = store.add([expense])
-    out.write(f"added {new_id} {expense.date} {format_cents(expense.amount_cents)} {expense.category}\n")
+    out.write(
+        f"added {new_id} {expense.date} {format_cents(expense.amount_cents)} {expense.category}\n"
+    )
     return 0
 
 

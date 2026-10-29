@@ -75,10 +75,11 @@ def open_store(path: str | os.PathLike | None = None) -> Store:
     con = sqlite3.connect(path, autocommit=False)
     try:
         with con:
-            for stmt in SCHEMA.split(";"):
-                if stmt.strip():
-                    con.execute(stmt)
-            con.execute("PRAGMA user_version = 1")
+            if con.execute("PRAGMA user_version").fetchone()[0] == 0:
+                for stmt in SCHEMA.split(";"):
+                    if stmt.strip():
+                        con.execute(stmt)
+                con.execute("PRAGMA user_version = 1")
     except BaseException:
         con.close()
         raise

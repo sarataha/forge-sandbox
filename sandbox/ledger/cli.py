@@ -27,3 +27,6 @@ def run(args: argparse.Namespace) -> int:
     except sqlite3.Error as err:
         print(f"ledger: error: database: {err}", file=sys.stderr)
         return 1
+    except OSError as err:
+        print(f"ledger: error: {err}", file=sys.stderr)
+        return 1
