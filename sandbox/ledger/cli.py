@@ -1,5 +1,6 @@
 import argparse
 import importlib
+import os
 import pkgutil
 import sqlite3
 import sys
@@ -26,6 +27,11 @@ def run(args: argparse.Namespace) -> int:
         return err.exit_code
     except sqlite3.Error as err:
         print(f"ledger: error: database: {err}", file=sys.stderr)
+        return 1
+    except BrokenPipeError:
+        # Python docs, "Note on SIGPIPE": point stdout at devnull so the
+        # interpreter's exit-time flush does not fail again.
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
         return 1
     except OSError as err:
         print(f"ledger: error: {err}", file=sys.stderr)
