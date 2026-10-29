@@ -7,8 +7,14 @@ The owner can export every Expense with `sandbox ledger export --format csv|json
 - [ ] `export --format csv` writes the pinned ledger CSV format to stdout, oldest date first.
 - [ ] `export --format json` writes the pinned JSON shape to stdout.
 - [ ] Importing a CSV export into an empty ledger gives the same Expenses (round trip), checked by a test through the CLI.
-- [ ] Notes containing commas, quotes and newlines survive the CSV round trip.
-- [ ] An empty ledger exports a header-only CSV and `[]` JSON, exit 0.
+- [ ] Notes containing commas and quotes survive the CSV round trip.
+- [ ] An empty ledger exports a header-only CSV and the pinned JSON object `{"expenses": [], "format": "ledger-export", "version": 1}`, exit 0.
+
+## Decisions
+| Decision | Source |
+|---|---|
+| Acceptance 4 drops newlines: notes cannot contain newlines (architecture, Global constraints), so only commas and quotes are tested. | owner decision |
+| Acceptance 5: an empty ledger exports a header-only CSV and the pinned JSON object `{"expenses": [], "format": "ledger-export", "version": 1}`, not `[]`, exit 0. | owner decision |
 
 ## Exercise
 ```
