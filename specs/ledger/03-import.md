@@ -31,7 +31,8 @@ none
 ## Decisions
 | Question | Default | Why |
 |---|---|---|
-| A repeated `note` header, or a row shorter than the header (even only in an extra column)? | Both are errors (`repeated column 'note'`, `missing column '<name>'`), nothing imported | Safest: no silent guess about which cell wins or whether data is missing; relaxing later is reversible |
+| A repeated `note` header? | Error (`repeated column 'note'`), nothing imported | Safest: no silent guess about which column wins; relaxing later is reversible |
+| A row shorter than the header (even only in an extra column)? | Error (`missing column '<name>'`), nothing imported | Safest: no silent guess that missing cells are empty; relaxing later is reversible |
 
 Depends on: 01
 Owns: sandbox/ledger/commands/import_csv.py, tests/test_ledger_import.py, tests/fixtures/

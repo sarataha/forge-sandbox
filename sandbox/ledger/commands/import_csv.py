@@ -5,7 +5,11 @@ from collections import Counter
 from sandbox.ledger.model import CSV_COLUMNS, LedgerError, make_expense
 from sandbox.ledger.store import Store
 
-REQUIRED = CSV_COLUMNS[:3]
+REQUIRED = ("date", "amount", "category")
+
+
+def _is_blank(row: list[str]) -> bool:
+    return not any(cell.strip() for cell in row)
 
 
 def _read_text(path: str) -> str:
@@ -33,16 +37,16 @@ def _header_index(path: str, header: list[str]) -> dict[str, int]:
 
 
 def import_expenses(store: Store, path: str) -> tuple[int, int]:
-    reader = csv.reader(io.StringIO(_read_text(path), newline=""))
+    reader = csv.reader(io.StringIO(_read_text(path), newline=""), strict=True)
     try:
-        header = next(reader, None)
+        header = next((r for r in reader if not _is_blank(r)), None)
         if header is None:
             raise LedgerError(f"{path}: empty file")
         index = _header_index(path, header)
 
         parsed = []
         for row in reader:
-            if not row:
+            if _is_blank(row):
                 continue
             line = f"{path} line {reader.line_num}"
             if len(row) > len(header):
@@ -55,7 +59,7 @@ def import_expenses(store: Store, path: str) -> tuple[int, int]:
             try:
                 parsed.append(
                     make_expense(
-                        row[index["date"]],
+                        row[index["date"]].strip(),
                         row[index["amount"]],
                         row[index["category"]],
                         note,
