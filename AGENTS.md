@@ -14,4 +14,3 @@ Stdlib only; no third-party runtime deps.
 - Sensitive paths (always human review): `sandbox/auth/`, `sandbox/billing/`
 - Test data: seeded fake data only (`python3 scripts/seed.py`, fixed seed). Never real customer data.
 
-Auto-merge: low-risk
