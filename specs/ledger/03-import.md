@@ -28,5 +28,11 @@ none
 - Uses: command module contract, `make_expense`, `CSV_COLUMNS`, `Store.add`, `Store.expenses`, `LedgerTestCase` (from 01)
 - Provides: `ledger import PATH`, `import_expenses(store, path) -> tuple[int, int]`, `tests/fixtures/expenses.csv` (architecture.md: ledger.commands.import, CSV)
 
+## Decisions
+| Question | Default | Why |
+|---|---|---|
+| A repeated `note` header? | Error (`repeated column 'note'`), nothing imported | Safest: no silent guess about which column wins; relaxing later is reversible |
+| A row shorter than the header (even only in an extra column)? | Error (`missing column '<name>'`), nothing imported | Safest: no silent guess that missing cells are empty; relaxing later is reversible |
+
 Depends on: 01
 Owns: sandbox/ledger/commands/import_csv.py, tests/test_ledger_import.py, tests/fixtures/
