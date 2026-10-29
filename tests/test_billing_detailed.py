@@ -266,7 +266,6 @@ class LicenseKeyTest(unittest.TestCase):
     # Acceptance 2, 4: missing or invalid keys raise LicenseError, exit code 3
     def test_check_license_rejects_bad_keys(self):
         from sandbox.billing.license import LicenseError, check_license
-
         from sandbox.ledger.model import LedgerError
 
         good = hmac.new(SECRET, b"LEDGER1-owner", hashlib.sha256).hexdigest()
