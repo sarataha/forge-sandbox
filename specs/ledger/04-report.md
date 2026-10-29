@@ -31,5 +31,10 @@ none
 - Uses: `Store.expenses(month)`, `Store.budgets` (01), Budgets set by 02, `parse_month`, `format_cents`
 - Provides: `ReportRow`, `Report`, `build_report(store, month)`, `render_report(report)`, `ledger report --month` (architecture.md: ledger.report)
 
+## Decisions
+| Question | Decision |
+|---|---|
+| Does the TOTAL line get `OVER` when total spent exceeds the total Budget? | No. TOTAL never prints `OVER`; only Category lines do. Matches the architecture example. |
+
 Depends on: 02
 Owns: sandbox/ledger/report.py, sandbox/ledger/commands/report.py, tests/test_ledger_report.py
