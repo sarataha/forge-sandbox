@@ -1,9 +1,28 @@
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import date
 
 CSV_COLUMNS: tuple[str, ...] = ("date", "amount", "category", "note")
 MAX_CENTS = 9_999_999_999
+
+
+_BAD_CATEGORIES = ("Cc", "Cf", "Cs", "Co", "Zl", "Zp")
+_JOINERS = {0x200C, 0x200D}
+_DIRECTION_MARKS = {0x200E, 0x200F}
+
+
+def _noncharacter(cp: int) -> bool:
+    return 0xFDD0 <= cp <= 0xFDEF or cp & 0xFFFF in (0xFFFE, 0xFFFF)
+
+
+def _bad_text(value: str, *, allow_marks: bool = False) -> bool:
+    allowed = _JOINERS | (_DIRECTION_MARKS if allow_marks else set())
+    return any(
+        _noncharacter(ord(c))
+        or (unicodedata.category(c) in _BAD_CATEGORIES and ord(c) not in allowed)
+        for c in value
+    )
 
 
 def _q(text: str) -> str:
@@ -35,9 +54,9 @@ def parse_amount(text: str, *, allow_zero: bool = False) -> int:
     if not re.fullmatch(r"[0-9]+(\.[0-9]{1,2})?", value):
         raise ValidationError(f"bad amount '{_q(text)}'")
     whole, _, frac = value.partition(".")
-    if len(whole) > len(str(MAX_CENTS // 100)):
+    if len(whole.lstrip("0")) > len(str(MAX_CENTS // 100)):
         raise ValidationError(f"bad amount '{_q(text)}'")
-    cents = int(whole) * 100 + int(frac.ljust(2, "0") or "0")
+    cents = int(whole.lstrip("0") or "0") * 100 + int(frac.ljust(2, "0") or "0")
     if cents > MAX_CENTS or cents < (0 if allow_zero else 1):
         raise ValidationError(f"bad amount '{_q(text)}'")
     return cents
@@ -66,10 +85,12 @@ def parse_month(text: str) -> str:
 
 
 def parse_category(text: str) -> str:
-    value = text.strip().casefold()
+    value = unicodedata.normalize(
+        "NFKC", unicodedata.normalize("NFKC", text).strip().casefold()
+    )
     if not value:
         raise ValidationError("empty category")
-    if not value.isprintable() or len(value) > 64:
+    if _bad_text(value) or len(value) > 64:
         raise ValidationError(f"bad category '{_q(text)}'")
     return value
 
@@ -78,7 +99,7 @@ def parse_note(text: str | None) -> str:
     if text is None:
         return ""
     value = text.strip()
-    if not value.isprintable() or len(value) > 200:
+    if _bad_text(value, allow_marks=True) or len(value) > 200:
         raise ValidationError(f"bad note '{_q(text)}'")
     return value
 
