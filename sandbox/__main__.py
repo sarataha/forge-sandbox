@@ -2,6 +2,7 @@ import argparse
 import sys
 
 from sandbox.ledger import cli as ledger_cli
+from sandbox.notes import cli as notes_cli
 
 
 def greet(name: str, shout: bool = False) -> str:
@@ -16,11 +17,14 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("name")
     g.add_argument("--shout", action="store_true")
     ledger_cli.register(sub)
+    notes_cli.register(sub)
     args = parser.parse_args(argv)
     if args.cmd == "greet":
         print(greet(args.name, args.shout))
     elif args.cmd == "ledger":
         return ledger_cli.run(args)
+    elif args.cmd == "notes":
+        return notes_cli.run(args)
     return 0
 
 
