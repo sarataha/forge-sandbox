@@ -22,5 +22,11 @@ none
 ## Interfaces
 - Provides: `sandbox.notes.store.load`, `add`, `validate`, `NoteError`; command discovery in `sandbox.notes.cli`.
 
+## Decisions
+| Question | Answer |
+|---|---|
+| Notes file exists but is not valid JSON of the data model | `notes: error: cannot read <path>: <detail>`, exit 2, file left untouched. |
+| Over-200 check | Applied after `strip()`, so surrounding whitespace does not count. |
+
 Depends on: none
 Owns: sandbox/__main__.py, sandbox/notes/__init__.py, sandbox/notes/cli.py, sandbox/notes/store.py, sandbox/notes/commands/__init__.py, sandbox/notes/commands/add.py, sandbox/notes/commands/listing.py, tests/test_notes_add_list.py
