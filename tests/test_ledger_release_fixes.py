@@ -21,13 +21,21 @@ ACCEPTED = {
     "zwnj persian": "".join(chr(c) for c in (0x645, 0x6CC))
     + ZWNJ
     + "".join(chr(c) for c in (0x62E, 0x648, 0x631, 0x645)),
-    "lrm": "a" + chr(0x200E) + "b",
-    "rlm": "a" + chr(0x200F) + "b",
-    "england flag": chr(0x1F3F4)
-    + "".join(chr(c) for c in (0xE0067, 0xE0062, 0xE0065, 0xE006E, 0xE0067, 0xE007F)),
     "unassigned": "a" + chr(0x0378) + "b",
 }
+NOTE_ONLY = {
+    "lrm": "a" + chr(0x200E) + "b",
+    "rlm": "a" + chr(0x200F) + "b",
+}
+TAGS = "".join(chr(c) for c in (0xE0067, 0xE0062, 0xE0065, 0xE006E, 0xE0067, 0xE007F))
 REJECTED = {
+    "england flag": chr(0x1F3F4) + TAGS,
+    "hidden tag text": "a" + "".join(chr(0xE0000 + ord(c)) for c in "hi") + "b",
+    "fffe": "a" + chr(0xFFFE) + "b",
+    "ffff": "a" + chr(0xFFFF) + "b",
+    "fdd0": "a" + chr(0xFDD0) + "b",
+    "10ffff": "a" + chr(0x10FFFF) + "b",
+    "1fffe": "a" + chr(0x1FFFE) + "b",
     "soft hyphen": "co" + chr(0xAD) + "op",
     "lre": "a" + chr(0x202A) + "b",
     "rlo": "a" + chr(0x202E) + "b",
@@ -120,6 +128,17 @@ class UnicodeTextTest(LedgerTestCase):
                 lst = self.run_cli("list")
                 cat = unicodedata.normalize("NFKC", text).casefold()
                 self.assertIn(f"\t{cat}\t{text}\n", lst.out)
+
+    def test_direction_marks_note_only(self):
+        for name, text in NOTE_ONLY.items():
+            with self.subTest(name + " note"):
+                r = self.run_cli("add", "1.00", "x", "--note", text)
+                self.assertEqual(r.code, 0, r.err)
+                self.assertIn(f"\tx\t{text}\n", self.run_cli("list").out)
+            with self.subTest(name + " category"):
+                r = self.run_cli("add", "1.00", text)
+                self.assertEqual(r.code, 1)
+                self.assertEqual(len(r.err.splitlines()), 1)
 
     def test_rejected(self):
         for name, text in REJECTED.items():

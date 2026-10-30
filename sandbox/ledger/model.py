@@ -8,12 +8,19 @@ MAX_CENTS = 9_999_999_999
 
 
 _BAD_CATEGORIES = ("Cc", "Cf", "Cs", "Co", "Zl", "Zp")
-_ALLOWED = {0x200C, 0x200D, 0x200E, 0x200F} | set(range(0xE0020, 0xE0080))
+_JOINERS = {0x200C, 0x200D}
+_DIRECTION_MARKS = {0x200E, 0x200F}
 
 
-def _bad_text(value: str) -> bool:
+def _noncharacter(cp: int) -> bool:
+    return 0xFDD0 <= cp <= 0xFDEF or cp & 0xFFFF in (0xFFFE, 0xFFFF)
+
+
+def _bad_text(value: str, *, allow_marks: bool = False) -> bool:
+    allowed = _JOINERS | (_DIRECTION_MARKS if allow_marks else set())
     return any(
-        unicodedata.category(c) in _BAD_CATEGORIES and ord(c) not in _ALLOWED
+        _noncharacter(ord(c))
+        or (unicodedata.category(c) in _BAD_CATEGORIES and ord(c) not in allowed)
         for c in value
     )
 
@@ -92,7 +99,7 @@ def parse_note(text: str | None) -> str:
     if text is None:
         return ""
     value = text.strip()
-    if _bad_text(value) or len(value) > 200:
+    if _bad_text(value, allow_marks=True) or len(value) > 200:
         raise ValidationError(f"bad note '{_q(text)}'")
     return value
 
