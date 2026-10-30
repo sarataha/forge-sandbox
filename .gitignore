@@ -3,3 +3,4 @@ __pycache__/
 !.env.example
 .venv/
 ledger.db
+notes.json

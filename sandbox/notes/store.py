@@ -1,8 +1,13 @@
 import json
 import os
 import tempfile
+import unicodedata
 
 MAX_LEN = 200
+
+
+_BAD_CATEGORIES = ("Cc", "Cf", "Cs", "Co", "Zl", "Zp")
+_JOINERS = {0x200C, 0x200D}
 
 
 class NoteError(Exception):
@@ -13,6 +18,18 @@ def _path(path: str | None) -> str:
     return path or os.environ.get("SANDBOX_NOTES_FILE") or "./notes.json"
 
 
+def _noncharacter(cp: int) -> bool:
+    return 0xFDD0 <= cp <= 0xFDEF or cp & 0xFFFF in (0xFFFE, 0xFFFF)
+
+
+def _bad_text(value: str) -> bool:
+    return any(
+        _noncharacter(ord(c))
+        or (unicodedata.category(c) in _BAD_CATEGORIES and ord(c) not in _JOINERS)
+        for c in value
+    )
+
+
 def validate(text: str) -> str:
     text = text.strip()
     if not text:
@@ -21,6 +38,8 @@ def validate(text: str) -> str:
         raise NoteError(f"text is longer than {MAX_LEN} characters")
     if any(c in text for c in "\t\r\n"):
         raise NoteError("text must not contain tabs or newlines")
+    if _bad_text(text):
+        raise NoteError("text must not contain control or invisible characters")
     return text
 
 
@@ -60,8 +79,12 @@ def _check(data: object) -> list[dict]:
         note_id, text = note.get("id"), note.get("text")
         if not isinstance(note_id, int) or isinstance(note_id, bool):
             raise TypeError("each note needs an integer id")
+        if note_id < 1:
+            raise ValueError("note ids must be 1 or more")
         if not isinstance(text, str):
             raise TypeError("each note needs a text string")
+        if _bad_text(text):
+            raise ValueError("note text has control or invisible characters")
         if note_id in seen:
             raise ValueError(f"duplicate id {note_id}")
         seen.add(note_id)
@@ -75,15 +98,23 @@ def add(text: str, path: str | None = None) -> int:
     new_id = max((n["id"] for n in notes), default=0) + 1
     notes.append({"id": new_id, "text": text})
     folder = os.path.dirname(os.path.abspath(path))
-    fd, tmp = tempfile.mkstemp(dir=folder, suffix=".tmp")
+    tmp = None
     try:
+        fd, tmp = tempfile.mkstemp(dir=folder, suffix=".tmp")
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump({"notes": notes}, f)
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp, path)
+    except OSError as err:
+        _discard(tmp)
+        raise NoteError(f"cannot write {path}: {err.strerror or err}") from err
     except BaseException:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
+        _discard(tmp)
         raise
     return new_id
+
+
+def _discard(tmp: str | None) -> None:
+    if tmp and os.path.exists(tmp):
+        os.unlink(tmp)
