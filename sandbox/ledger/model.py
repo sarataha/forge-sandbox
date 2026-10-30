@@ -1,9 +1,14 @@
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import date
 
 CSV_COLUMNS: tuple[str, ...] = ("date", "amount", "category", "note")
 MAX_CENTS = 9_999_999_999
+
+
+def _bad_text(value: str) -> bool:
+    return any(unicodedata.category(c) in ("Cc", "Zl", "Zp") for c in value)
 
 
 def _q(text: str) -> str:
@@ -35,7 +40,7 @@ def parse_amount(text: str, *, allow_zero: bool = False) -> int:
     if not re.fullmatch(r"[0-9]+(\.[0-9]{1,2})?", value):
         raise ValidationError(f"bad amount '{_q(text)}'")
     whole, _, frac = value.partition(".")
-    if len(whole) > len(str(MAX_CENTS // 100)):
+    if len(whole.lstrip("0")) > len(str(MAX_CENTS // 100)):
         raise ValidationError(f"bad amount '{_q(text)}'")
     cents = int(whole) * 100 + int(frac.ljust(2, "0") or "0")
     if cents > MAX_CENTS or cents < (0 if allow_zero else 1):
@@ -69,7 +74,7 @@ def parse_category(text: str) -> str:
     value = text.strip().casefold()
     if not value:
         raise ValidationError("empty category")
-    if not value.isprintable() or len(value) > 64:
+    if _bad_text(value) or len(value) > 64:
         raise ValidationError(f"bad category '{_q(text)}'")
     return value
 
@@ -78,7 +83,7 @@ def parse_note(text: str | None) -> str:
     if text is None:
         return ""
     value = text.strip()
-    if not value.isprintable() or len(value) > 200:
+    if _bad_text(value) or len(value) > 200:
         raise ValidationError(f"bad note '{_q(text)}'")
     return value
 

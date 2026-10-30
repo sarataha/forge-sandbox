@@ -21,7 +21,9 @@ def register(top: argparse._SubParsersAction) -> None:
 def run(args: argparse.Namespace) -> int:
     try:
         with open_store() as store:
-            return args.handler(args, store, sys.stdout)
+            code = args.handler(args, store, sys.stdout)
+            sys.stdout.flush()
+            return code
     except LedgerError as err:
         print(err.message_line(), file=sys.stderr)
         return err.exit_code
@@ -31,7 +33,9 @@ def run(args: argparse.Namespace) -> int:
     except BrokenPipeError:
         # Python docs, "Note on SIGPIPE": point stdout at devnull so the
         # interpreter's exit-time flush does not fail again.
-        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        os.close(devnull)
         return 1
     except OSError as err:
         print(f"ledger: error: {err}", file=sys.stderr)
