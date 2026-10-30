@@ -7,13 +7,13 @@ CSV_COLUMNS: tuple[str, ...] = ("date", "amount", "category", "note")
 MAX_CENTS = 9_999_999_999
 
 
-_BAD_CATEGORIES = ("Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp")
-_ALLOWED_JOINERS = ("‌", "‍")
+_BAD_CATEGORIES = ("Cc", "Cf", "Cs", "Co", "Zl", "Zp")
+_ALLOWED = {0x200C, 0x200D, 0x200E, 0x200F} | set(range(0xE0020, 0xE0080))
 
 
 def _bad_text(value: str) -> bool:
     return any(
-        unicodedata.category(c) in _BAD_CATEGORIES and c not in _ALLOWED_JOINERS
+        unicodedata.category(c) in _BAD_CATEGORIES and ord(c) not in _ALLOWED
         for c in value
     )
 
@@ -78,7 +78,9 @@ def parse_month(text: str) -> str:
 
 
 def parse_category(text: str) -> str:
-    value = unicodedata.normalize("NFKC", text).strip().casefold()
+    value = unicodedata.normalize(
+        "NFKC", unicodedata.normalize("NFKC", text).strip().casefold()
+    )
     if not value:
         raise ValidationError("empty category")
     if _bad_text(value) or len(value) > 64:

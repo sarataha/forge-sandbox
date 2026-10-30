@@ -21,10 +21,14 @@ ACCEPTED = {
     "zwnj persian": "".join(chr(c) for c in (0x645, 0x6CC))
     + ZWNJ
     + "".join(chr(c) for c in (0x62E, 0x648, 0x631, 0x645)),
+    "lrm": "a" + chr(0x200E) + "b",
+    "rlm": "a" + chr(0x200F) + "b",
+    "england flag": chr(0x1F3F4)
+    + "".join(chr(c) for c in (0xE0067, 0xE0062, 0xE0065, 0xE006E, 0xE0067, 0xE007F)),
+    "unassigned": "a" + chr(0x0378) + "b",
 }
 REJECTED = {
     "soft hyphen": "co" + chr(0xAD) + "op",
-    "rlm": "a" + chr(0x200F) + "b",
     "lre": "a" + chr(0x202A) + "b",
     "rlo": "a" + chr(0x202E) + "b",
     "lri": "a" + chr(0x2066) + "b",
@@ -32,7 +36,6 @@ REJECTED = {
     "bom": "a" + chr(0xFEFF) + "b",
     "zero width space": "a" + chr(0x200B) + "b",
     "private use": "a" + chr(0xE000) + "b",
-    "unassigned": "a" + chr(0x0378) + "b",
     "lone surrogate": "a" + chr(0xD800) + "b",
     "esc": "a" + chr(0x1B) + "b",
     "nul": "a" + chr(0) + "b",
@@ -140,6 +143,11 @@ class UnicodeTextTest(LedgerTestCase):
             self.run_cli("budget", "set", "eating" + NBSP + "out", "9").code, 0
         )
         self.assertEqual(self.run_cli("budget", "list").out, "eating out\t9.00\n")
+
+    def test_category_is_nfkc_stable_after_casefold(self):
+        r = self.run_cli("add", "1.00", chr(0x1F0), "--date", "2026-01-01")
+        self.assertEqual(r.code, 0, r.err)
+        self.assertIn(f"\t{chr(0x1F0)}\t", self.run_cli("list").out)
 
     def test_csv_import_nbsp_note(self):
         note = "a" + NBSP + "b"

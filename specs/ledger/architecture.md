@@ -31,8 +31,8 @@ Code uses the same words: `Expense`, `category`, `budget`, `month`, `build_repor
 - Money is integer cents everywhere (`int`). Never call `float()` on an amount; parse text with the regex in `model.parse_amount` (the whole-part length cap ignores leading zeros; `cents > MAX_CENTS` is the real limit), format with `model.format_cents`.
 - Dates are stored and printed as ISO `YYYY-MM-DD` text, Months as `YYYY-MM`. "Today" is `date.today()` (local).
 - Every raw user string (CLI arg or CSV cell) is validated by one function in `sandbox/ledger/model.py`. Commands do not write their own validation.
-- Category is stored normalised: `unicodedata.normalize("NFKC", text).strip().casefold()`, non-empty. Display uses the stored form. Two spellings that casefold equal are one Category.
-- Note is stored as `''` when absent (never `NULL`), so equality and duplicate checks work in SQL and Python. Note and Category may not contain any character in Unicode categories `Cc` (incl. `\t`, `\r`, `\n`, ESC, NUL), `Cf` (bidi controls, BOM, soft hyphen, RLM, zero-width space), `Cs` (lone surrogates), `Co` (private use), `Cn` (unassigned), `Zl` or `Zp` (U+2028, U+2029), except U+200C (ZWNJ) and U+200D (ZWJ), which are allowed. Other characters are allowed, incl. no-break spaces.
+- Category is stored normalised: NFKC, `strip()`, `casefold()`, NFKC again (`unicodedata.normalize`), non-empty. Display uses the stored form. Two spellings that casefold equal are one Category.
+- Note is stored as `''` when absent (never `NULL`), so equality and duplicate checks work in SQL and Python. Note and Category may not contain any character in Unicode categories `Cc` (incl. `\t`, `\r`, `\n`, ESC, NUL), `Cf` (bidi controls, BOM, soft hyphen, RLM, zero-width space), `Cs` (lone surrogates), `Co` (private use), `Zl` or `Zp` (U+2028, U+2029), except U+200C (ZWNJ), U+200D (ZWJ), U+200E (LRM), U+200F (RLM) and U+E0020 to U+E007F (emoji tag characters), which are allowed. `Cn` (unassigned) is allowed, because it depends on the Python build's Unicode version. Other characters are allowed, incl. no-break spaces. The rule applies to new input (`add`, `budget set`, `import`); rows stored earlier are not re-validated.
 - Results go to stdout; errors go to stderr as one line `ledger: error: <message>`. Nothing is written to stdout on a failing command.
 - Exit codes:
 
@@ -81,7 +81,7 @@ Code uses the same words: `Expense`, `category`, `budget`, `month`, `build_repor
   - `format_cents(cents: int) -> str`: `"12.50"`, `"0.00"`, negative as `"-12.50"`.
   - `parse_date(text: str) -> str`: `fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")` then `date.fromisoformat` for calendar validity; returns the same string.
   - `parse_month(text: str) -> str`: `fullmatch(r"[0-9]{4}-(0[1-9]|1[0-2])")`.
-  - `parse_category(text: str) -> str`: `strip().casefold()`, non-empty, `NFKC`, then `strip().casefold()`, non-empty, no characters per the rule in Global constraints, max 64 chars.
+  - `parse_category(text: str) -> str`: NFKC, `strip()`, `casefold()`, NFKC again; non-empty; characters per the rule in Global constraints; max 64 chars
   - `parse_note(text: str | None) -> str`: `None` -> `""`; `strip()`; no characters per the rule in Global constraints; max 200 chars.
   - `CSV_COLUMNS: tuple[str, ...] = ("date", "amount", "category", "note")` (the pinned CSV contract, see Data model).
   - `class LedgerError(Exception)`: `exit_code: int = 1`. `class ValidationError(LedgerError)`. Messages name the bad value in quotes, e.g. `bad amount '12.5.0'`, `bad date '2026-02-30'`, `bad month '2026-13'`, `empty category`.
