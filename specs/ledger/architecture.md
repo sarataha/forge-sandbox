@@ -31,8 +31,8 @@ Code uses the same words: `Expense`, `category`, `budget`, `month`, `build_repor
 - Money is integer cents everywhere (`int`). Never call `float()` on an amount; parse text with the regex in `model.parse_amount` (the whole-part length cap ignores leading zeros; `cents > MAX_CENTS` is the real limit), format with `model.format_cents`.
 - Dates are stored and printed as ISO `YYYY-MM-DD` text, Months as `YYYY-MM`. "Today" is `date.today()` (local).
 - Every raw user string (CLI arg or CSV cell) is validated by one function in `sandbox/ledger/model.py`. Commands do not write their own validation.
-- Category is stored normalised: `text.strip().casefold()`, non-empty. Display uses the stored form. Two spellings that casefold equal are one Category.
-- Note is stored as `''` when absent (never `NULL`), so equality and duplicate checks work in SQL and Python. Note and Category may not contain control characters (Unicode category `Cc`, incl. `\t`, `\r`, `\n`, ESC, NUL) or line/paragraph separators (`Zl`, `Zp`: U+2028, U+2029); they would break line output. Other characters are allowed, incl. no-break spaces, joiners and soft hyphens.
+- Category is stored normalised: `unicodedata.normalize("NFKC", text).strip().casefold()`, non-empty. Display uses the stored form. Two spellings that casefold equal are one Category.
+- Note is stored as `''` when absent (never `NULL`), so equality and duplicate checks work in SQL and Python. Note and Category may not contain any character in Unicode categories `Cc` (incl. `\t`, `\r`, `\n`, ESC, NUL), `Cf` (bidi controls, BOM, soft hyphen, RLM, zero-width space), `Cs` (lone surrogates), `Co` (private use), `Cn` (unassigned), `Zl` or `Zp` (U+2028, U+2029), except U+200C (ZWNJ) and U+200D (ZWJ), which are allowed. Other characters are allowed, incl. no-break spaces.
 - Results go to stdout; errors go to stderr as one line `ledger: error: <message>`. Nothing is written to stdout on a failing command.
 - Exit codes:
 
@@ -63,7 +63,7 @@ Code uses the same words: `Expense`, `category`, `budget`, `month`, `build_repor
 ### ledger.cli (command registry and runner)
 - Interface:
   - `register(top: argparse._SubParsersAction) -> None`: adds `ledger` with its own `add_subparsers(dest="ledger_cmd", required=True)`, then imports every module in `sandbox.ledger.commands` (via `pkgutil.iter_modules(commands.__path__)`, **sorted by name**) and calls its `register(subparsers)`.
-  - `run(args: argparse.Namespace) -> int`: opens the Store from `SANDBOX_LEDGER_DB`, calls `args.handler(args, store, sys.stdout)`, closes the Store. Catches `LedgerError` -> prints `ledger: error: <msg>` (or the error's own `message_line()`) to stderr, returns `err.exit_code`. Catches `sqlite3.Error` -> `ledger: error: database: <msg>`, exit 1. Flushes stdout inside the `try`, so a closed pipe surfaces there: `BrokenPipeError` -> stdout redirected to devnull (fd closed after `dup2`), silent exit 1; any other `OSError` -> `ledger: error: <msg>`, exit 1.
+  - `run(args: argparse.Namespace) -> int`: opens the Store from `SANDBOX_LEDGER_DB`, calls `args.handler(args, store, sys.stdout)`, closes the Store. Catches `LedgerError` -> prints `ledger: error: <msg>` (or the error's own `message_line()`) to stderr, returns `err.exit_code`. Catches `sqlite3.Error` -> `ledger: error: database: <msg>`, exit 1. If `sys.stdout is None` (stdout closed with `>&-`), returns 1 silently. Flushes stdout inside the `try`, so a closed pipe surfaces there: `BrokenPipeError` -> stdout redirected to devnull (the devnull fd is closed after `dup2` unless it equals the stdout fd), silent exit 1; `UnicodeEncodeError` -> `ledger: error: <msg>`, exit 1; any other `OSError` -> `ledger: error: <msg>`, exit 1.
   - **Command module contract** (every file in `sandbox/ledger/commands/`): exposes `register(subparsers) -> None`, which calls `subparsers.add_parser("<name>", help=...)`, adds its arguments, and `set_defaults(handler=<fn>)`. Handler: `handler(args, store: Store, out: TextIO) -> int`. A handler raises `LedgerError` for user errors; it never calls `sys.exit` or prints to stderr itself. Adding a subcommand = adding one file; nothing else changes.
 - Owns: `sandbox/ledger/__init__.py` (empty), `sandbox/ledger/cli.py`, `sandbox/ledger/commands/__init__.py` (empty), `tests/ledger_support.py`.
 - Test seam (highest seam, used by every slice): `tests/ledger_support.py` provides `class LedgerTestCase(unittest.TestCase)`:
@@ -81,8 +81,8 @@ Code uses the same words: `Expense`, `category`, `budget`, `month`, `build_repor
   - `format_cents(cents: int) -> str`: `"12.50"`, `"0.00"`, negative as `"-12.50"`.
   - `parse_date(text: str) -> str`: `fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")` then `date.fromisoformat` for calendar validity; returns the same string.
   - `parse_month(text: str) -> str`: `fullmatch(r"[0-9]{4}-(0[1-9]|1[0-2])")`.
-  - `parse_category(text: str) -> str`: `strip().casefold()`, non-empty, no `Cc`/`Zl`/`Zp` characters, max 64 chars.
-  - `parse_note(text: str | None) -> str`: `None` -> `""`; `strip()`; no `Cc`/`Zl`/`Zp` characters; max 200 chars.
+  - `parse_category(text: str) -> str`: `strip().casefold()`, non-empty, `NFKC`, then `strip().casefold()`, non-empty, no characters per the rule in Global constraints, max 64 chars.
+  - `parse_note(text: str | None) -> str`: `None` -> `""`; `strip()`; no characters per the rule in Global constraints; max 200 chars.
   - `CSV_COLUMNS: tuple[str, ...] = ("date", "amount", "category", "note")` (the pinned CSV contract, see Data model).
   - `class LedgerError(Exception)`: `exit_code: int = 1`. `class ValidationError(LedgerError)`. Messages name the bad value in quotes, e.g. `bad amount '12.5.0'`, `bad date '2026-02-30'`, `bad month '2026-13'`, `empty category`.
 - Owns: `sandbox/ledger/model.py`, `tests/test_ledger_model.py` (optional table tests of the parsers; all behaviour must also be reachable through the CLI).

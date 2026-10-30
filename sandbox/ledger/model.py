@@ -7,8 +7,15 @@ CSV_COLUMNS: tuple[str, ...] = ("date", "amount", "category", "note")
 MAX_CENTS = 9_999_999_999
 
 
+_BAD_CATEGORIES = ("Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp")
+_ALLOWED_JOINERS = ("‌", "‍")
+
+
 def _bad_text(value: str) -> bool:
-    return any(unicodedata.category(c) in ("Cc", "Zl", "Zp") for c in value)
+    return any(
+        unicodedata.category(c) in _BAD_CATEGORIES and c not in _ALLOWED_JOINERS
+        for c in value
+    )
 
 
 def _q(text: str) -> str:
@@ -42,7 +49,7 @@ def parse_amount(text: str, *, allow_zero: bool = False) -> int:
     whole, _, frac = value.partition(".")
     if len(whole.lstrip("0")) > len(str(MAX_CENTS // 100)):
         raise ValidationError(f"bad amount '{_q(text)}'")
-    cents = int(whole) * 100 + int(frac.ljust(2, "0") or "0")
+    cents = int(whole.lstrip("0") or "0") * 100 + int(frac.ljust(2, "0") or "0")
     if cents > MAX_CENTS or cents < (0 if allow_zero else 1):
         raise ValidationError(f"bad amount '{_q(text)}'")
     return cents
@@ -71,7 +78,7 @@ def parse_month(text: str) -> str:
 
 
 def parse_category(text: str) -> str:
-    value = text.strip().casefold()
+    value = unicodedata.normalize("NFKC", text).strip().casefold()
     if not value:
         raise ValidationError("empty category")
     if _bad_text(value) or len(value) > 64:

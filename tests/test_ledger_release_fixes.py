@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import unicodedata
 import unittest
 
 from tests.ledger_support import LedgerTestCase
@@ -20,10 +21,19 @@ ACCEPTED = {
     "zwnj persian": "".join(chr(c) for c in (0x645, 0x6CC))
     + ZWNJ
     + "".join(chr(c) for c in (0x62E, 0x648, 0x631, 0x645)),
-    "soft hyphen": "co" + chr(0xAD) + "op",
-    "rlm": "a" + chr(0x200F) + "b",
 }
 REJECTED = {
+    "soft hyphen": "co" + chr(0xAD) + "op",
+    "rlm": "a" + chr(0x200F) + "b",
+    "lre": "a" + chr(0x202A) + "b",
+    "rlo": "a" + chr(0x202E) + "b",
+    "lri": "a" + chr(0x2066) + "b",
+    "pdi": "a" + chr(0x2069) + "b",
+    "bom": "a" + chr(0xFEFF) + "b",
+    "zero width space": "a" + chr(0x200B) + "b",
+    "private use": "a" + chr(0xE000) + "b",
+    "unassigned": "a" + chr(0x0378) + "b",
+    "lone surrogate": "a" + chr(0xD800) + "b",
     "esc": "a" + chr(0x1B) + "b",
     "nul": "a" + chr(0) + "b",
     "line separator": "a" + chr(0x2028) + "b",
@@ -60,6 +70,42 @@ class BrokenPipeSmallOutputTest(unittest.TestCase):
         self.assertNotEqual(code, 120)
 
 
+class ClosedStdoutTest(unittest.TestCase):
+    def test_closed_stdout_is_silent_exit_1(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {**os.environ, "SANDBOX_LEDGER_DB": os.path.join(tmp, "l.db")}
+            cmd = f"'{sys.executable}' -m sandbox ledger list >&-"
+            p = subprocess.run(
+                ["/bin/sh", "-c", cmd],
+                cwd=ROOT,
+                env=env,
+                capture_output=True,
+                check=False,
+            )
+        self.assertEqual(p.stderr, b"")
+        self.assertEqual(p.returncode, 1)
+
+
+class UnencodableOutputTest(unittest.TestCase):
+    def test_ascii_stdout_gives_one_line_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {
+                **os.environ,
+                "SANDBOX_LEDGER_DB": os.path.join(tmp, "l.db"),
+                "PYTHONIOENCODING": "ascii:strict",
+            }
+            p = subprocess.run(
+                [sys.executable, "-m", "sandbox", "ledger", "add", "1", "café"],
+                cwd=ROOT,
+                env=env,
+                capture_output=True,
+                check=False,
+            )
+        self.assertEqual(p.returncode, 1)
+        self.assertNotIn(b"Traceback", p.stderr)
+        self.assertTrue(p.stderr.startswith(b"ledger: error:"))
+
+
 class UnicodeTextTest(LedgerTestCase):
     def test_accepted_in_category_and_note(self):
         for name, text in ACCEPTED.items():
@@ -69,7 +115,8 @@ class UnicodeTextTest(LedgerTestCase):
                 )
                 self.assertEqual(r.code, 0, r.err)
                 lst = self.run_cli("list")
-                self.assertIn(f"\t{text.casefold()}\t{text}\n", lst.out)
+                cat = unicodedata.normalize("NFKC", text).casefold()
+                self.assertIn(f"\t{cat}\t{text}\n", lst.out)
 
     def test_rejected(self):
         for name, text in REJECTED.items():
@@ -82,6 +129,17 @@ class UnicodeTextTest(LedgerTestCase):
                 self.assertEqual(r.code, 1)
                 self.assertEqual(len(r.err.splitlines()), 1)
         self.assertEqual(self.run_cli("list").out, "")
+
+    def test_nbsp_and_space_category_are_one(self):
+        a = self.run_cli("add", "1.00", "eating" + NBSP + "out", "--date", "2026-01-01")
+        b = self.run_cli("add", "2.00", "eating out", "--date", "2026-01-02")
+        self.assertEqual((a.code, b.code), (0, 0))
+        out = self.run_cli("list").out
+        self.assertEqual(out.count("\teating out\t"), 2)
+        self.assertEqual(
+            self.run_cli("budget", "set", "eating" + NBSP + "out", "9").code, 0
+        )
+        self.assertEqual(self.run_cli("budget", "list").out, "eating out\t9.00\n")
 
     def test_csv_import_nbsp_note(self):
         note = "a" + NBSP + "b"
@@ -101,6 +159,21 @@ class AmountLeadingZerosTest(LedgerTestCase):
                     self.run_cli("add", text, "x", "--date", "2026-01-01").code, 0
                 )
                 self.assertIn(f"\t{want}\tx", self.run_cli("list").out)
+
+    def test_huge_zero_padded_amount_is_small_value(self):
+        text = "0" * 5000 + "5"
+        r = self.run_cli("add", text, "x", "--date", "2026-01-01")
+        self.assertEqual(r.code, 0, r.err)
+        self.assertIn("\t5.00\tx", self.run_cli("list").out)
+        b = self.run_cli("budget", "set", "x", text)
+        self.assertEqual(b.code, 0, b.err)
+        self.assertEqual(self.run_cli("budget", "list").out, "x\t5.00\n")
+        path = self.write_file(
+            "z.csv", f"date,amount,category,note\n2026-01-02,{text},y,\n"
+        )
+        i = self.run_cli("import", path)
+        self.assertEqual(i.code, 0, i.err)
+        self.assertIn("\t5.00\ty\t", self.run_cli("list").out)
 
     def test_huge_amount_one_line(self):
         r = self.run_cli("add", "9" * 5000, "x")
