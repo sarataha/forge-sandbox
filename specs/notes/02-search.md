@@ -18,6 +18,12 @@ After two `notes add` calls (01 Exercise), `python3 -m sandbox notes search BANK
 ## Risk
 none
 
+## Decisions
+| Question | Answer |
+|---|---|
+| Whitespace around the search word | Stripped before matching, as `store.validate` does for note text. |
+| Case-insensitive match | `str.casefold()` on both sides; plain substring, no word boundaries. |
+
 ## Interfaces
 - Uses: `sandbox.notes.store.load` (from 01-skeleton), command discovery (from 01-skeleton)
 - Provides: `notes search <word>`
